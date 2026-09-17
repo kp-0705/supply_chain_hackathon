@@ -9,7 +9,6 @@ build/
 **/build/
 
 # Environment variables & secrets
-backend/.env
 .env
 **/.env
 .env.local
