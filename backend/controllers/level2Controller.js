@@ -1,5 +1,7 @@
 const db = require('../config/database');
 const ValidationService = require('../services/validationService');
+const AllocationService = require('../services/allocationService');
+const AiService = require('../services/aiService');
 
 class Level2Controller {
   /**
@@ -244,6 +246,89 @@ class Level2Controller {
       return res.status(500).json({
         success: false,
         message: err.message,
+        data: null,
+        errors: [{ message: err.message }]
+      });
+    }
+  }
+  /**
+   * Get real-time supply availability for planner cockpit
+   */
+  static async getSupplyAvailability(req, res) {
+    try {
+      const { product_id, month } = req.query;
+
+      if (!product_id || !month) {
+        return res.status(400).json({
+          success: false,
+          message: 'product_id and month are required',
+          data: null,
+          errors: []
+        });
+      }
+
+      const supRes = await db.query(
+        `SELECT sp.*, pr.product_name, pr.category, pr.unit_price, pr.standard_cost,
+                (sp.available_quantity - sp.allocated_quantity) as remaining_quantity
+         FROM supply sp
+         JOIN products pr ON sp.product_id = pr.product_id
+         WHERE sp.product_id = $1 AND sp.month = $2
+         ORDER BY sp.week ASC`,
+        [Number(product_id), Number(month)]
+      );
+
+      return res.json({
+        success: true,
+        message: 'Supply availability retrieved',
+        data: supRes.rows,
+        errors: []
+      });
+    } catch (err) {
+      return res.status(500).json({
+        success: false,
+        message: err.message,
+        data: null,
+        errors: [{ message: err.message }]
+      });
+    }
+  }
+
+  /**
+   * Get AI recommendation for Level 2 planner (advisory only)
+   * GET /level2/demand/:demand_id/ai-recommendation
+   */
+  static async getAIRecommendation(req, res) {
+    const { demand_id } = req.params;
+
+    try {
+      const recommendation = await AiService.generateLevel2Recommendation(demand_id);
+
+      if (recommendation.ai_available && recommendation.suggested_quantity !== null) {
+        await db.query(
+          `UPDATE demand_raw 
+           SET suggested_quantity = $1, confidence = $2, reason = $3, ai_recommendation = $4, updated_at = NOW() 
+           WHERE demand_id = $5`,
+          [
+            recommendation.suggested_quantity,
+            recommendation.confidence,
+            recommendation.reason,
+            JSON.stringify(recommendation),
+            demand_id
+          ]
+        );
+      }
+
+      return res.json({
+        success: true,
+        message: 'AI recommendation generated',
+        data: recommendation,
+        errors: []
+      });
+    } catch (err) {
+      console.error('Level 2 AI recommendation error:', err);
+      return res.status(500).json({
+        success: false,
+        message: err.message || 'Failed to generate AI recommendation',
         data: null,
         errors: [{ message: err.message }]
       });

@@ -21,6 +21,8 @@ level2Router.get('/demands', Level2Controller.getDemands);
 level2Router.post('/demand/:demand_id/approve', Level2Controller.approve);
 level2Router.post('/demand/:demand_id/partial-accept', Level2Controller.partialAccept);
 level2Router.post('/demand/:demand_id/reject', Level2Controller.reject);
+level2Router.get('/supply/availability', Level2Controller.getSupplyAvailability);
+level2Router.get('/demand/:demand_id/ai-recommendation', Level2Controller.getAIRecommendation);
 
 // Level 3 Router
 const level3Router = express.Router();

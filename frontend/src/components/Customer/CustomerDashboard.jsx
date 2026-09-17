@@ -18,6 +18,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import DemandTimeline from './DemandTimeline';
+import CustomerChatbot from './CustomerChatbot';
 
 export default function CustomerDashboard({ onNavigateSubmit }) {
   const { user, customer } = useAuth();
@@ -346,6 +347,9 @@ export default function CustomerDashboard({ onNavigateSubmit }) {
           })}
         </div>
       )}
+
+      {/* Customer AI Chatbot - floating widget, receives demands list */}
+      <CustomerChatbot demands={demands} />
     </div>
   );
 }

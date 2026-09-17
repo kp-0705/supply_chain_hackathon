@@ -142,6 +142,13 @@ export const api = {
     body: JSON.stringify({ reason, comment })
   }),
 
+  // AI Features
+  getLevel2AIRecommendation: (demandId) => request(`/level2/demand/${demandId}/ai-recommendation`),
+  customerChatbotQuery: (demandId, question) => request('/customer/chatbot', {
+    method: 'POST',
+    body: JSON.stringify({ demand_id: demandId, question })
+  }),
+
   // Notifications
   getNotifications: () => request('/notifications'),
   markNotificationRead: (id) => request(`/notifications/${id}/read`, { method: 'PATCH' })
