@@ -12,6 +12,10 @@ router.post('/demand/submit', CustomerController.submitDemand);
 router.get('/demands', CustomerController.getMyDemands);
 router.get('/demand/:demand_id/status', CustomerController.getDemandStatus);
 router.get('/demand/:demand_id/timeline', CustomerController.getDemandTimeline);
-router.get('/products', require('../controllers/adminController').listProducts);
+router.post('/chatbot', CustomerController.chatbotQuery);
+
+// Shared resources for customer
+const AdminController = require('../controllers/adminController');
+router.get('/products', AdminController.listProducts);
 
 module.exports = router;

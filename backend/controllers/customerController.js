@@ -1,5 +1,6 @@
 const db = require('../config/database');
 const DemandService = require('../services/demandService');
+const AiService = require('../services/aiService');
 
 class CustomerController {
   static async submitDemand(req, res) {
@@ -178,6 +179,85 @@ class CustomerController {
       });
     } catch (err) {
       return res.status(err.statusCode || 500).json({
+        success: false,
+        message: err.message,
+        data: null,
+        errors: [{ message: err.message }]
+      });
+    }
+  }
+
+  /**
+   * Customer AI Chatbot — restricted to the authenticated customer's own demands.
+   * Answers conversational questions about demand status, rejection reasons,
+   * allocation quantities, and supply availability using real database data.
+   * Never exposes internal business data (costs, margins, other customers).
+   */
+  static async chatbotQuery(req, res) {
+    const { demand_id, question } = req.body;
+
+    if (!demand_id || !question || !question.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'demand_id and question are required',
+        data: null,
+        errors: [{ field: 'question', message: 'Question cannot be empty' }]
+      });
+    }
+
+    const customerId = req.user.customer_id;
+    if (!customerId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only customer accounts can use the chatbot',
+        data: null,
+        errors: []
+      });
+    }
+
+    try {
+      // Ownership verification: ensure this demand belongs to the authenticated customer
+      const ownerCheck = await db.query(
+        'SELECT demand_id FROM demand_raw WHERE demand_id = $1 AND customer_id = $2',
+        [Number(demand_id), Number(customerId)]
+      );
+
+      if (ownerCheck.rows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'You do not have permission to query this demand',
+          data: null,
+          errors: []
+        });
+      }
+
+      const result = await AiService.answerCustomerQuery(
+        Number(customerId),
+        Number(demand_id),
+        question.trim()
+      );
+
+      // Audit log — store chatbot interaction for quality review
+      try {
+        await db.query(
+          `INSERT INTO chatbot_messages (demand_id, customer_id, question, answer)
+           VALUES ($1, $2, $3, $4)`,
+          [Number(demand_id), Number(customerId), question.trim(), result.answer]
+        );
+      } catch (logErr) {
+        // Non-fatal: chatbot_messages table may not exist yet (graceful degradation)
+        console.warn('chatbot_messages log skipped:', logErr.message);
+      }
+
+      return res.json({
+        success: true,
+        message: 'Chatbot response generated',
+        data: result,
+        errors: []
+      });
+    } catch (err) {
+      console.error('Chatbot query error:', err);
+      return res.status(500).json({
         success: false,
         message: err.message,
         data: null,
